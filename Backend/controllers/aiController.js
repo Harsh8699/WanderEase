@@ -182,12 +182,12 @@ const generateMockItinerary = (destinationName, duration, weatherForecast = []) 
 const suggestItinerary = asyncHandler(async (req, res) => {
     const { destinationName, duration, weatherForecast } = req.body;
 
-    if (!destinationName || !duration || !weatherForecast) {
+    if (!destinationName || !Number.isInteger(duration) || duration < 1 || duration > 30 || !Array.isArray(weatherForecast)) {
         res.status(400);
         throw new Error('Destination, duration, and weather forecast are required.');
     }
 
-    const days = parseInt(duration, 10) || 1;
+    const days = duration;
     const weatherSummary = Array.isArray(weatherForecast)
         ? weatherForecast
               .map(
@@ -384,13 +384,13 @@ const generateMockBackpackList = (destinationName, duration, travelers, weatherF
 const generateBackpackList = asyncHandler(async (req, res) => {
     const { destinationName, duration, travelers, weatherForecast } = req.body;
 
-    if (!destinationName || !duration || !travelers) {
+    if (!destinationName || !Number.isInteger(duration) || duration < 1 || duration > 30 || !Number.isInteger(travelers) || travelers < 1 || travelers > 50) {
         res.status(400);
         throw new Error('Destination, duration, and travelers are required.');
     }
 
-    const days = parseInt(duration, 10) || 1;
-    const people = parseInt(travelers, 10) || 1;
+    const days = duration;
+    const people = travelers;
 
     const weatherSummary = Array.isArray(weatherForecast)
         ? weatherForecast

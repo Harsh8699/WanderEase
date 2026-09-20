@@ -26,6 +26,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import RouteMap from '@/components/RouteMap';
+import { getErrorMessage } from '@/lib/utils';
 
 const PlanTrip = () => {
   const location = useLocation();
@@ -62,9 +63,9 @@ const PlanTrip = () => {
       );
       setBlueprint(result);
       toast.success('Trip blueprint generated successfully!');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Planning error:', error);
-      toast.error(error.response?.data?.message || 'Failed to generate trip blueprint');
+      toast.error(getErrorMessage(error, 'Failed to generate trip blueprint'));
     } finally {
       setIsLoading(false);
     }
@@ -86,9 +87,9 @@ const PlanTrip = () => {
       const trip = await tripService.createTrip(tripName, tripMode, blueprint);
       toast.success('Trip created successfully!');
       navigate(`/trip/${trip._id}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Save trip error:', error);
-      toast.error(error.response?.data?.message || 'Failed to create trip');
+      toast.error(getErrorMessage(error, 'Failed to create trip'));
     } finally {
       setIsSaving(false);
     }
@@ -400,7 +401,7 @@ const PlanTrip = () => {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="tripMode">Trip Mode</Label>
-                      <Select value={tripMode} onValueChange={(value: any) => setTripMode(value)}>
+                      <Select value={tripMode} onValueChange={(value) => setTripMode(value as 'Solo Trip' | 'Group Trip')}>
                         <SelectTrigger id="tripMode">
                           <SelectValue />
                         </SelectTrigger>

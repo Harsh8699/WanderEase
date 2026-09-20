@@ -191,6 +191,12 @@ const getTierForCity = (mapboxContext) => { if (!mapboxContext) return 2; const 
 const generateTripBlueprint = asyncHandler(async (req, res) => {
     const { origin, destinationName, departureDate, duration, travelers } = req.body;
     if (!origin || !destinationName || !departureDate || !duration || !travelers) { res.status(400); throw new Error('Missing required fields'); }
+    const tripDate = new Date(`${departureDate}T00:00:00`);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (!Number.isInteger(duration) || duration < 1 || duration > 30) { res.status(400); throw new Error('Duration must be a whole number between 1 and 30 days.'); }
+    if (!Number.isInteger(travelers) || travelers < 1 || travelers > 50) { res.status(400); throw new Error('Travelers must be a whole number between 1 and 50.'); }
+    if (Number.isNaN(tripDate.getTime()) || tripDate < today) { res.status(400); throw new Error('Departure date must be today or later.'); }
 
     const mapboxApiKey = process.env.MAPBOX_API_KEY;
     if (!mapboxApiKey) { res.status(500); throw new Error('Server configuration error: Mapbox API key is missing.'); }

@@ -17,7 +17,7 @@ const getTeaserCost = (destinationTier, duration) => {
 const discoverDestinations = asyncHandler(async (req, res) => {
     const { weather, duration } = req.body;
     if (!weather || !weatherPreferences[weather]) { res.status(400); throw new Error('A valid weather preference is required.'); }
-    if (!duration || isNaN(duration) || duration < 1) { res.status(400); throw new Error('A valid trip duration is required.'); }
+    if (!Number.isInteger(duration) || duration < 1 || duration > 30) { res.status(400); throw new Error('Trip duration must be a whole number between 1 and 30 days.'); }
     
     const tempRange = weatherPreferences[weather];
     const apiKey = process.env.OPENWEATHERMAP_API_KEY;
@@ -33,7 +33,7 @@ const discoverDestinations = asyncHandler(async (req, res) => {
             const currentTemp = response.data.main.temp;
             const currentDestination = destinationsInIndia[index];
             if (currentTemp >= tempRange.min && currentTemp <= tempRange.max) {
-                matchingDestinations.push({ name: currentDestination.name, currentTemp: Math.round(currentTemp), weatherDescription: response.data.weather[0].description, estimatedCostPerPerson: getTeaserCost(currentDestination.tier, parseInt(duration)), });
+                matchingDestinations.push({ name: currentDestination.name, currentTemp: Math.round(currentTemp), weatherDescription: response.data.weather[0].description, estimatedCostPerPerson: getTeaserCost(currentDestination.tier, duration), });
             }
         } else {
             console.error(`Failed to fetch weather for ${destinationsInIndia[index].name}:`, result.reason.message);

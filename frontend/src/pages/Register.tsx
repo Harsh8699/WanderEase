@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plane, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const Register = () => {
   const [name, setName] = useState('');
@@ -19,6 +20,7 @@ const Register = () => {
     e.preventDefault();
     
     if (password.length < 6) {
+      toast.error('Password must be at least 6 characters');
       return;
     }
 

@@ -22,7 +22,7 @@ export const aiService = {
   suggestItinerary: async (
     destinationName: string,
     duration: number,
-    weatherForecast: any[]
+    weatherForecast: unknown[]
   ): Promise<AIItineraryResponse> => {
     const response = await api.post('/api/ai/suggest-itinerary', {
       destinationName,
@@ -36,7 +36,7 @@ export const aiService = {
     destinationName: string,
     duration: number,
     travelers: number,
-    weatherForecast: any[],
+    weatherForecast: unknown[],
   ): Promise<AIBackpackResponse> => {
     const response = await api.post('/api/ai/backpack-list', {
       destinationName,

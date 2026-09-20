@@ -10,6 +10,7 @@ import { MapPin, Thermometer, IndianRupee, Loader2, ArrowRight } from 'lucide-re
 import { toast } from 'sonner';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import { getErrorMessage } from '@/lib/utils';
 
 // Fetch Unsplash image for a given query
 const getUnsplashImage = async (query: string): Promise<string | null> => {
@@ -72,9 +73,9 @@ const Search = () => {
       } else {
         toast.success(`Found ${resultsWithImages.length} destinations for you!`);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Search error:', error);
-      toast.error(error.response?.data?.message || 'Failed to search destinations');
+      toast.error(getErrorMessage(error, 'Failed to search destinations'));
     } finally {
       setIsLoading(false);
     }

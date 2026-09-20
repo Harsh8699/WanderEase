@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { authService, User, AuthResponse } from '@/services/authService';
 import { toast } from 'sonner';
+import { getErrorMessage } from '@/lib/utils';
 
 interface AuthContextType {
   user: User | null;
@@ -23,8 +24,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const storedUser = localStorage.getItem('user');
 
     if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
+      try {
+        setToken(storedToken);
+        setUser(JSON.parse(storedUser));
+      } catch {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
+    } else if (storedToken) {
+      localStorage.removeItem('token');
     }
     setIsLoading(false);
   }, []);
@@ -37,9 +45,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setToken(data.token);
       setUser({ _id: data._id, name: data.name, email: data.email });
       toast.success('Login successful!');
-    } catch (error: any) {
-      const message = error.response?.data?.message || 'Login failed';
-      toast.error(message);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Login failed'));
       throw error;
     }
   };
@@ -52,9 +59,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setToken(data.token);
       setUser({ _id: data._id, name: data.name, email: data.email });
       toast.success('Registration successful!');
-    } catch (error: any) {
-      const message = error.response?.data?.message || 'Registration failed';
-      toast.error(message);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Registration failed'));
       throw error;
     }
   };

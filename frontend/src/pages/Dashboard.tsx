@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { getErrorMessage } from '@/lib/utils';
 
 const Dashboard = () => {
   const [trips, setTrips] = useState<Trip[]>([]);
@@ -61,9 +62,9 @@ const Dashboard = () => {
       const trip = await tripService.joinTrip(inviteCode);
       toast.success('Successfully joined the trip!');
       navigate(`/trip/${trip._id}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Join trip error:', error);
-      toast.error(error.response?.data?.message || 'Failed to join trip');
+      toast.error(getErrorMessage(error, 'Failed to join trip'));
     } finally {
       setIsJoining(false);
     }

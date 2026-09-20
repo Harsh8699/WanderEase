@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { tripService, Trip } from '@/services/tripService';
 import { aiService, AISuggestion, BackpackCategory } from '@/services/aiService';
@@ -25,12 +25,14 @@ import {
   Plane,
   Briefcase,
   Pencil,
+  ListChecks,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { useAuth } from '@/contexts/AuthContext';
+import { getErrorMessage } from '@/lib/utils';
 
 const TripDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -65,24 +67,29 @@ const TripDetails = () => {
   const [backpackCategories, setBackpackCategories] = useState<BackpackCategory[]>([]);
   const [isLoadingBackpack, setIsLoadingBackpack] = useState(false);
 
-  useEffect(() => {
-    if (id) {
-      loadTrip();
-    }
-  }, [id]);
+  // Polls
+  const [pollTitle, setPollTitle] = useState('');
+  const [pollOptions, setPollOptions] = useState(['', '']);
+  const [isCreatingPoll, setIsCreatingPoll] = useState(false);
 
-  const loadTrip = async () => {
+  const loadTrip = useCallback(async () => {
     try {
       const data = await tripService.getTripById(id!);
       setTrip(data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Load trip error:', error);
       toast.error('Failed to load trip');
       navigate('/dashboard');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [id, navigate]);
+
+  useEffect(() => {
+    if (id) {
+      loadTrip();
+    }
+  }, [id, loadTrip]);
 
   const handleAddItineraryItem = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,8 +107,8 @@ const TripDetails = () => {
       setNewItemTitle('');
       setNewItemNotes('');
       toast.success('Activity added!');
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to add activity');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to add activity'));
     } finally {
       setIsAddingItem(false);
     }
@@ -112,8 +119,8 @@ const TripDetails = () => {
       const updated = await tripService.deleteItineraryItem(id!, itemId);
       setTrip(updated);
       toast.success('Activity removed');
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to remove activity');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to remove activity'));
     }
   };
 
@@ -132,14 +139,14 @@ const TripDetails = () => {
       setExpenseDescription('');
       setExpenseAmount('');
       toast.success('Expense added!');
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to add expense');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to add expense'));
     } finally {
       setIsAddingExpense(false);
     }
   };
 
-  const startEditExpense = (expense: any) => {
+  const startEditExpense = (expense: Trip['expenses'][number]) => {
     setEditingExpenseId(expense._id);
     setEditExpenseDescription(expense.description);
     setEditExpenseAmount(expense.amount.toString());
@@ -166,8 +173,8 @@ const TripDetails = () => {
       setEditExpenseDescription('');
       setEditExpenseAmount('');
       toast.success('Expense updated!');
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to update expense');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to update expense'));
     } finally {
       setIsUpdatingExpense(false);
     }
@@ -185,8 +192,8 @@ const TripDetails = () => {
         setEditExpenseAmount('');
       }
       toast.success('Expense removed');
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to remove expense');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to remove expense'));
     } finally {
       setIsUpdatingExpense(false);
     }
@@ -204,8 +211,8 @@ const TripDetails = () => {
       );
       setAiSuggestions(result.suggestions);
       toast.success('AI itinerary suggestions loaded!');
-    } catch (error: any) {
-      toast.error('Failed to load AI itinerary suggestions');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to load AI itinerary suggestions'));
     } finally {
       setIsLoadingAI(false);
     }
@@ -224,10 +231,41 @@ const TripDetails = () => {
       );
       setBackpackCategories(result.categories);
       toast.success('Smart backpack list generated!');
-    } catch (error: any) {
-      toast.error('Failed to load smart backpack list');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to load smart backpack list'));
     } finally {
       setIsLoadingBackpack(false);
+    }
+  };
+
+  const handleCreatePoll = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const options = pollOptions.map((option) => option.trim()).filter(Boolean);
+    if (!pollTitle.trim() || options.length < 2) {
+      toast.error('Enter a poll title and at least two options');
+      return;
+    }
+
+    setIsCreatingPoll(true);
+    try {
+      const updated = await tripService.createPoll(id!, pollTitle.trim(), options);
+      setTrip(updated);
+      setPollTitle('');
+      setPollOptions(['', '']);
+      toast.success('Poll created');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to create poll'));
+    } finally {
+      setIsCreatingPoll(false);
+    }
+  };
+
+  const handleVote = async (pollId: string, optionId: string) => {
+    try {
+      const updated = await tripService.castVote(id!, pollId, optionId);
+      setTrip(updated);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, 'Failed to cast vote'));
     }
   };
 
@@ -298,10 +336,11 @@ const TripDetails = () => {
 
           {/* Tabs */}
           <Tabs defaultValue="overview" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="itinerary">Itinerary</TabsTrigger>
               <TabsTrigger value="expenses">Expenses</TabsTrigger>
+              <TabsTrigger value="polls">Polls</TabsTrigger>
               <TabsTrigger value="members">Members</TabsTrigger>
             </TabsList>
 
@@ -715,6 +754,63 @@ const TripDetails = () => {
                       ))
                     )}
                   </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Polls Tab */}
+            <TabsContent value="polls" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ListChecks className="h-5 w-5" />
+                    Group Polls
+                  </CardTitle>
+                  <CardDescription>Let trip members vote on shared decisions.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <form onSubmit={handleCreatePoll} className="p-4 border rounded-lg space-y-3">
+                    <Label htmlFor="pollTitle">Question</Label>
+                    <Input
+                      id="pollTitle"
+                      placeholder="Where should we have dinner?"
+                      value={pollTitle}
+                      onChange={(e) => setPollTitle(e.target.value)}
+                    />
+                    {pollOptions.map((option, index) => (
+                      <Input
+                        key={index}
+                        placeholder={`Option ${index + 1}`}
+                        value={option}
+                        onChange={(e) => setPollOptions((current) => current.map((item, itemIndex) => itemIndex === index ? e.target.value : item))}
+                      />
+                    ))}
+                    <div className="flex gap-2">
+                      <Button type="button" variant="outline" onClick={() => setPollOptions((current) => [...current, ''])}>
+                        <Plus className="mr-2 h-4 w-4" /> Add option
+                      </Button>
+                      <Button type="submit" disabled={isCreatingPoll}>
+                        {isCreatingPoll && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Create poll
+                      </Button>
+                    </div>
+                  </form>
+
+                  {trip.polls.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-8">No polls yet</p>
+                  ) : trip.polls.map((poll) => (
+                    <div key={poll._id} className="p-4 border rounded-lg space-y-3">
+                      <h3 className="font-semibold">{poll.title}</h3>
+                      <div className="space-y-2">
+                        {poll.options.map((option) => (
+                          <Button key={option._id} type="button" variant="outline" className="w-full justify-between" onClick={() => handleVote(poll._id, option._id)}>
+                            <span>{option.text}</span>
+                            <span className="text-muted-foreground">{option.votes.length} votes</span>
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </CardContent>
               </Card>
             </TabsContent>
