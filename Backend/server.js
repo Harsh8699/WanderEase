@@ -21,6 +21,8 @@ const aiRoutes = require('./routes/aiRoutes');
 dotenv.config();
 const app = express();
 axios.defaults.timeout = 10000;
+// Render terminates the public connection and forwards one proxy hop.
+app.set('trust proxy', 1);
 
 const allowedOrigins = process.env.CLIENT_URL
 	? process.env.CLIENT_URL.split(',').map((origin) => origin.trim()).filter(Boolean)
