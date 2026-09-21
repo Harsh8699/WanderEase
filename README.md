@@ -87,6 +87,7 @@ See [Backend/.env.example](Backend/.env.example).
 | `GOOGLE_GEMINI_API_KEY` | No | Gemini itinerary and packing suggestions |
 | `CLIENT_URL` | Yes | Allowed frontend origin(s), comma-separated |
 | `COOKIE_SAME_SITE` | Usually | `lax` locally; use `none` for cross-site HTTPS deployments |
+| `COOKIE_SECURE` | Usually | `false` locally; set `true` for HTTPS deployments |
 | `PORT` | No | API port, defaults to `5000` |
 | `NODE_ENV` | No | Use `production` for deployment |
 

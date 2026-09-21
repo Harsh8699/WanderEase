@@ -4,10 +4,11 @@ const User = require('../models/User.js');
 const jwt = require('jsonwebtoken');
 
 const AUTH_COOKIE = 'wanderease_token';
+const isProductionDeployment = process.env.NODE_ENV === 'production' || Boolean(process.env.RENDER_EXTERNAL_URL);
 const cookieOptions = {
   httpOnly: true,
-  sameSite: process.env.COOKIE_SAME_SITE || (process.env.NODE_ENV === 'production' ? 'none' : 'lax'),
-  secure: process.env.NODE_ENV === 'production',
+  sameSite: process.env.COOKIE_SAME_SITE || (isProductionDeployment ? 'none' : 'lax'),
+  secure: process.env.COOKIE_SECURE ? process.env.COOKIE_SECURE === 'true' : isProductionDeployment,
   maxAge: 30 * 24 * 60 * 60 * 1000,
 };
 
