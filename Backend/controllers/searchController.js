@@ -30,9 +30,9 @@ const discoverDestinations = asyncHandler(async (req, res) => {
     weatherResponses.forEach((result, index) => {
         if (result.status === 'fulfilled') {
             const response = result.value;
-            const currentTemp = response.data.main.temp;
+            const currentTemp = response.data?.main?.temp;
             const currentDestination = destinationsInIndia[index];
-            if (currentTemp >= tempRange.min && currentTemp <= tempRange.max) {
+            if (typeof currentTemp === 'number' && currentTemp >= tempRange.min && currentTemp <= tempRange.max) {
                 matchingDestinations.push({ name: currentDestination.name, currentTemp: Math.round(currentTemp), weatherDescription: response.data.weather[0].description, estimatedCostPerPerson: getTeaserCost(currentDestination.tier, duration), });
             }
         } else {

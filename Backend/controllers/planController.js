@@ -117,69 +117,19 @@ const fetchWeatherForecast = async (lat, lon, departureDate, duration) => {
 
     let sortedDays = Object.values(dailyData).sort((a, b) => a.date.localeCompare(b.date));
 
-    // If there is no data exactly for the requested date range (e.g. departure date is too far
-    // in the future or in the past), fall back to the earliest available forecast days
-    if (sortedDays.length === 0) {
-        const fallbackDailyData = {};
-        for (const entry of response.data.list || []) {
-            const dt = new Date(entry.dt * 1000);
-            const dayKey = dt.toISOString().split('T')[0];
-            const tempMax = entry.main?.temp_max;
-            const tempMin = entry.main?.temp_min;
-            const weather = (entry.weather && entry.weather[0]) || {};
+    // Do not substitute weather from a different date range.
+    if (sortedDays.length === 0) return [];
 
-            if (!fallbackDailyData[dayKey]) {
-                fallbackDailyData[dayKey] = {
-                    date: dayKey,
-                    temp_max: tempMax,
-                    temp_min: tempMin,
-                    descriptions: [weather.description || ''],
-                    icon: weather.icon || '02d',
-                };
-            } else {
-                fallbackDailyData[dayKey].temp_max = Math.max(fallbackDailyData[dayKey].temp_max, tempMax);
-                fallbackDailyData[dayKey].temp_min = Math.min(fallbackDailyData[dayKey].temp_min, tempMin);
-                fallbackDailyData[dayKey].descriptions.push(weather.description || '');
-            }
-        }
-
-        sortedDays = Object.values(fallbackDailyData).sort((a, b) => a.date.localeCompare(b.date));
-    }
-
-    // If still nothing, return a single placeholder day
-    if (sortedDays.length === 0) {
-        const fallbackDate = new Date().toISOString().split('T')[0];
-        return [{
-            date: fallbackDate,
-            temp_max: 25,
-            temp_min: 15,
-            description: 'No forecast data available',
-            icon: '02d',
-        }];
-    }
-
-    // Normalize to the requested number of days, reusing the last available day if needed
     const result = [];
-    for (let i = 0; i < days; i++) {
-        if (sortedDays[i]) {
-            const day = sortedDays[i];
-            result.push({
-                date: day.date,
-                temp_max: day.temp_max,
-                temp_min: day.temp_min,
-                description: day.descriptions.find(Boolean) || 'clear sky',
-                icon: day.icon,
-            });
-        } else {
-            const last = sortedDays[sortedDays.length - 1];
-            result.push({
-                date: last.date,
-                temp_max: last.temp_max,
-                temp_min: last.temp_min,
-                description: last.descriptions.find(Boolean) || 'clear sky',
-                icon: last.icon,
-            });
-        }
+    for (let i = 0; i < sortedDays.length; i++) {
+        const day = sortedDays[i];
+        result.push({
+            date: day.date,
+            temp_max: day.temp_max,
+            temp_min: day.temp_min,
+            description: day.descriptions.find(Boolean) || 'clear sky',
+            icon: day.icon,
+        });
     }
 
     return result;
@@ -190,7 +140,7 @@ const getTierForCity = (mapboxContext) => { if (!mapboxContext) return 2; const 
 
 const generateTripBlueprint = asyncHandler(async (req, res) => {
     const { origin, destinationName, departureDate, duration, travelers } = req.body;
-    if (!origin || !destinationName || !departureDate || !duration || !travelers) { res.status(400); throw new Error('Missing required fields'); }
+    if (typeof origin !== 'string' || origin.trim().length < 2 || origin.length > 100 || typeof destinationName !== 'string' || destinationName.trim().length < 2 || destinationName.length > 100 || typeof departureDate !== 'string' || !duration || !travelers) { res.status(400); throw new Error('Missing or invalid required fields'); }
     const tripDate = new Date(`${departureDate}T00:00:00`);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -203,19 +153,19 @@ const generateTripBlueprint = asyncHandler(async (req, res) => {
 
     const destGeocodeUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(destinationName)}.json?access_token=${mapboxApiKey}&limit=1&country=IN`;
     const destGeocodeResponse = await axios.get(destGeocodeUrl);
-    if (!destGeocodeResponse.data || destGeocodeResponse.data.features.length === 0) { res.status(404); throw new Error('Could not find the destination city.'); }
+    if (!destGeocodeResponse.data?.features?.length) { res.status(404); throw new Error('Could not find the destination city.'); }
     
     const destinationFeature = destGeocodeResponse.data.features[0];
     const destination = { name: destinationFeature.text, lon: destinationFeature.center[0], lat: destinationFeature.center[1], tier: getTierForCity(destinationFeature.context) };
     
     const originGeocodeUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(origin)}.json?access_token=${mapboxApiKey}&limit=1&country=IN`;
     const originGeocodeResponse = await axios.get(originGeocodeUrl);
-    if (!originGeocodeResponse.data || originGeocodeResponse.data.features.length === 0) { res.status(400); throw new Error('Could not find the origin city.'); }
+    if (!originGeocodeResponse.data?.features?.length) { res.status(400); throw new Error('Could not find the origin city.'); }
     
     const originCoords = originGeocodeResponse.data.features[0].center;
     const directionsUrl = `https://api.mapbox.com/directions/v5/mapbox/driving/${originCoords.join(',')};${destination.lon},${destination.lat}?geometries=geojson&access_token=${mapboxApiKey}`;
     const directionsResult = await axios.get(directionsUrl);
-    
+    if (!directionsResult.data?.routes?.length) { res.status(422); throw new Error('Could not calculate a driving route between these cities.'); }
     const primaryRoute = directionsResult.data.routes[0];
     const distanceKm = primaryRoute.distance / 1000;
 

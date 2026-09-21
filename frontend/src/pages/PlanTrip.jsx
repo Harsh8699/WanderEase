@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { planService } from '@/services/planService';
 import { tripService } from '@/services/tripService';
@@ -25,7 +25,7 @@ import { toast } from 'sonner';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import RouteMap from '@/components/RouteMap';
+const RouteMap = lazy(() => import('@/components/RouteMap'));
 
 const PlanTrip = () => {
   const location = useLocation();
@@ -211,7 +211,9 @@ const PlanTrip = () => {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <RouteMap route={blueprint.route} />
+                    <Suspense fallback={<LoadingSpinner message="Loading route map..." />}>
+                      <RouteMap route={blueprint.route} />
+                    </Suspense>
                   </CardContent>
                 </Card>
               )}
@@ -257,7 +259,7 @@ const PlanTrip = () => {
                       <p className="text-2xl font-bold">₹{blueprint.transportOptions.flight.costPerPerson}</p>
                       <p className="text-sm text-muted-foreground">per person</p>
                       <a
-                        href="https://www.skyscanner.co.in/"
+                        href={blueprint.transportOptions.flight.link}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-sm text-primary hover:underline flex items-center gap-1"
@@ -340,8 +342,13 @@ const PlanTrip = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-                    {blueprint.weatherForecast.map((day, index) => {
+                  {blueprint.weatherForecast.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      Forecast data is unavailable for these dates. The provider currently supports five-day forecasts.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+                      {blueprint.weatherForecast.map((day, index) => {
                       const isWarm = day.temp_max >= 30;
                       const isCold = day.temp_max <= 20;
                       const gradient = isWarm
@@ -376,8 +383,9 @@ const PlanTrip = () => {
                           </div>
                         </div>
                       );
-                    })}
-                  </div>
+                      })}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 

@@ -5,6 +5,11 @@ const crypto = require('crypto');
 
 const isMember = (trip, userId) => trip.members.some((memberId) => memberId.equals(userId));
 const createInviteCode = () => crypto.randomBytes(4).toString('hex').slice(0, 6).toUpperCase();
+const populateTrip = (query) => query
+    .populate('members', 'name email')
+    .populate('expenses.paidBy', 'name')
+    .populate('polls.options.votes', 'name')
+    .populate('polls.createdBy', 'name');
 
 const createTrip = asyncHandler(async (req, res) => {
     const { tripName, tripMode, blueprint } = req.body;
@@ -21,8 +26,19 @@ const getUserTrips = asyncHandler(async (req, res) => {
     res.status(200).json(trips);
 });
 
+const deleteTrip = asyncHandler(async (req, res) => {
+    const trip = await Trip.findById(req.params.id);
+    if (!trip) { res.status(404); throw new Error('Trip not found.'); }
+    if (!trip.createdBy.equals(req.user._id)) {
+        res.status(403);
+        throw new Error('Only the organizer can delete this trip.');
+    }
+    await trip.deleteOne();
+    res.status(204).send();
+});
+
 const getTripById = asyncHandler(async (req, res) => {
-    const trip = await Trip.findById(req.params.id).populate('members', 'name email');
+    const trip = await populateTrip(Trip.findById(req.params.id));
     if (!trip) { res.status(404); throw new Error('Trip not found.'); }
     if (!trip.members.some(member => member._id.equals(req.user._id))) { res.status(403); throw new Error('User not authorized.'); }
     res.status(200).json(trip);
@@ -36,7 +52,7 @@ const joinTrip = asyncHandler(async (req, res) => {
     if (isMember(trip, req.user._id)) { res.status(400); throw new Error('User is already a member.'); }
     trip.members.push(req.user._id);
     await trip.save();
-    const updatedTrip = await Trip.findById(trip._id).populate('members', 'name email');
+    const updatedTrip = await populateTrip(Trip.findById(trip._id));
     res.status(200).json(updatedTrip);
 });
 
@@ -48,7 +64,7 @@ const addItineraryItem = asyncHandler(async (req, res) => {
     const newItem = { day, title: title.trim(), notes: notes?.trim() || '', addedBy: req.user._id, };
     trip.itinerary.push(newItem);
     await trip.save();
-    const updatedTrip = await Trip.findById(req.params.id).populate('members', 'name email');
+    const updatedTrip = await populateTrip(Trip.findById(req.params.id));
     res.status(201).json(updatedTrip);
 });
 
@@ -59,7 +75,7 @@ const deleteItineraryItem = asyncHandler(async (req, res) => {
     if (!itemToDelete) { res.status(404); throw new Error('Itinerary item not found.'); }
     itemToDelete.deleteOne();
     await trip.save();
-    const updatedTrip = await Trip.findById(req.params.id).populate('members', 'name email');
+    const updatedTrip = await populateTrip(Trip.findById(req.params.id));
     res.status(200).json(updatedTrip);
 });
 
@@ -71,7 +87,7 @@ const addExpense = asyncHandler(async (req, res) => {
     const newExpense = { description: description.trim(), amount, paidBy: req.user._id, };
     trip.expenses.push(newExpense);
     await trip.save();
-    const updatedTrip = await Trip.findById(req.params.id).populate('members', 'name email').populate('expenses.paidBy', 'name');
+    const updatedTrip = await populateTrip(Trip.findById(req.params.id));
     res.status(201).json(updatedTrip);
 });
 const deleteExpense = asyncHandler(async (req, res) => {
@@ -90,9 +106,7 @@ const deleteExpense = asyncHandler(async (req, res) => {
     expenseToDelete.deleteOne();
     await trip.save();
 
-    const updatedTrip = await Trip.findById(req.params.id)
-        .populate('members', 'name email')
-        .populate('expenses.paidBy', 'name');
+    const updatedTrip = await populateTrip(Trip.findById(req.params.id));
 
     res.status(200).json(updatedTrip);
 });
@@ -117,9 +131,7 @@ const updateExpense = asyncHandler(async (req, res) => {
     if (amount !== undefined) expense.amount = amount;
 
     await trip.save();
-    const updatedTrip = await Trip.findById(req.params.id)
-        .populate('members', 'name email')
-        .populate('expenses.paidBy', 'name');
+    const updatedTrip = await populateTrip(Trip.findById(req.params.id));
     res.status(200).json(updatedTrip);
 });
 
@@ -132,7 +144,7 @@ const createPoll = asyncHandler(async (req, res) => {
     const newPoll = { title: title.trim(), options: cleanOptions.map((optionText) => ({ text: optionText, votes: [] })), createdBy: req.user._id, };
     trip.polls.push(newPoll);
     await trip.save();
-    const updatedTrip = await Trip.findById(req.params.id).populate('polls.options.votes', 'name');
+    const updatedTrip = await populateTrip(Trip.findById(req.params.id));
     res.status(201).json(updatedTrip);
 });
 
@@ -148,8 +160,8 @@ const castVote = asyncHandler(async (req, res) => {
     if (!selectedOption) { res.status(404); throw new Error('Selected option not found.'); }
     selectedOption.votes.push(req.user._id);
     await trip.save();
-    const updatedTrip = await Trip.findById(req.params.id).populate('polls.options.votes', 'name').populate('polls.createdBy', 'name');
+    const updatedTrip = await populateTrip(Trip.findById(req.params.id));
     res.status(200).json(updatedTrip);
 });
 
-module.exports = { createTrip, getUserTrips, getTripById, joinTrip, addItineraryItem, deleteItineraryItem, addExpense, deleteExpense, updateExpense, createPoll, castVote };
+module.exports = { createTrip, getUserTrips, getTripById, deleteTrip, joinTrip, addItineraryItem, deleteItineraryItem, addExpense, deleteExpense, updateExpense, createPoll, castVote };

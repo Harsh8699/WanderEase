@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
-const { registerUser, loginUser, getMe } = require('../controllers/authController');
+const { registerUser, loginUser, getMe, logoutUser } = require('../controllers/authController');
 const { protect } = require('../middleware/authMiddleware');
 const { validate } = require('../middleware/validationMiddleware');
 
@@ -10,5 +10,6 @@ const registerRules = [ body('name', 'Name is required').trim().isLength({ min: 
 router.post('/register', registerRules, validate, registerUser);
 router.post('/login', [body('email').trim().isEmail(), body('password').isLength({ min: 1 })], validate, loginUser);
 router.get('/me', protect, getMe);
+router.post('/logout', protect, logoutUser);
 
 module.exports = router;

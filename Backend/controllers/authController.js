@@ -3,9 +3,22 @@ const asyncHandler = require('express-async-handler');
 const User = require('../models/User.js');
 const jwt = require('jsonwebtoken');
 
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+const AUTH_COOKIE = 'wanderease_token';
+
+const generateToken = (user) => {
+  return jwt.sign({ id: user._id, tokenVersion: user.tokenVersion }, process.env.JWT_SECRET, { expiresIn: '30d' });
 };
+
+const setAuthCookie = (res, user) => {
+  res.cookie(AUTH_COOKIE, generateToken(user), {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 30 * 24 * 60 * 60 * 1000,
+  });
+};
+
+const userResponse = (user) => ({ _id: user._id, name: user.name, email: user.email });
 
 const registerUser = asyncHandler(async (req, res) => {
   const name = req.body.name.trim();
@@ -18,7 +31,8 @@ const registerUser = asyncHandler(async (req, res) => {
   }
   const user = await User.create({ name, email, password });
   if (user) {
-    res.status(201).json({ _id: user._id, name: user.name, email: user.email, token: generateToken(user._id) });
+    setAuthCookie(res, user);
+    res.status(201).json(userResponse(user));
   } else {
     res.status(400);
     throw new Error('Invalid user data received');
@@ -30,7 +44,8 @@ const loginUser = asyncHandler(async (req, res) => {
   const { password } = req.body;
   const user = await User.findOne({ email });
   if (user && (await user.matchPassword(password))) {
-    res.status(200).json({ _id: user._id, name: user.name, email: user.email, token: generateToken(user._id) });
+    setAuthCookie(res, user);
+    res.status(200).json(userResponse(user));
   } else {
     res.status(401);
     throw new Error('Invalid email or password');
@@ -38,8 +53,18 @@ const loginUser = asyncHandler(async (req, res) => {
 });
 
 const getMe = asyncHandler(async (req, res) => {
-    const user = { _id: req.user._id, email: req.user.email, name: req.user.name };
-    res.status(200).json(user);
+    res.status(200).json(userResponse(req.user));
 });
 
-module.exports = { registerUser, loginUser, getMe };
+const logoutUser = asyncHandler(async (req, res) => {
+  req.user.tokenVersion += 1;
+  await req.user.save();
+  res.clearCookie(AUTH_COOKIE, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+  });
+  res.status(204).send();
+});
+
+module.exports = { registerUser, loginUser, getMe, logoutUser };

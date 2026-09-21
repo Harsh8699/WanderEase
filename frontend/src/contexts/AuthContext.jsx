@@ -11,31 +11,29 @@ export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-
-    if (storedToken && storedUser) {
+    let isMounted = true;
+    const restoreSession = async () => {
       try {
-        const parsedUser = JSON.parse(storedUser);
-        setToken(storedToken);
-        setUser(parsedUser);
-      } catch (error) {
-        console.error('Failed to parse stored user:', error);
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        const data = await authService.getMe();
+        if (isMounted) setUser(data);
+      } catch {
+        if (isMounted) setUser(null);
+      } finally {
+        if (isMounted) setIsLoading(false);
       }
-    }
-    setIsLoading(false);
+    };
+
+    restoreSession();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Set up unauthorized callback for axios interceptor
   useEffect(() => {
     const handleUnauthorized = () => {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
       setToken(null);
       setUser(null);
-      toast.error('Session expired. Please login again.');
     };
     
     setUnauthorizedCallback(handleUnauthorized);
@@ -44,10 +42,8 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const data = await authService.login(email, password);
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify({ _id: data._id, name: data.name, email: data.email }));
-      setToken(data.token);
-      setUser({ _id: data._id, name: data.name, email: data.email });
+      setToken(null);
+      setUser(data);
       toast.success('Login successful!');
     } catch (error) {
       const message = error.response?.data?.message || 'Login failed';
@@ -59,10 +55,8 @@ export const AuthProvider = ({ children }) => {
   const register = async (name, email, password) => {
     try {
       const data = await authService.register(name, email, password);
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify({ _id: data._id, name: data.name, email: data.email }));
-      setToken(data.token);
-      setUser({ _id: data._id, name: data.name, email: data.email });
+      setToken(null);
+      setUser(data);
       toast.success('Registration successful!');
     } catch (error) {
       const message = error.response?.data?.message || 'Registration failed';
@@ -71,12 +65,14 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setToken(null);
-    setUser(null);
-    toast.success('Logged out successfully');
+  const logout = async () => {
+    try {
+      await authService.logout();
+    } finally {
+      setToken(null);
+      setUser(null);
+      toast.success('Logged out successfully');
+    }
   };
 
   return (

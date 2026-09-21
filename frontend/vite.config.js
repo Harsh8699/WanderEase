@@ -15,4 +15,16 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          if (id.includes('mapbox-gl')) return 'mapbox';
+          if (id.includes('recharts')) return 'charts';
+          return 'vendor';
+        },
+      },
+    },
+  },
 }));

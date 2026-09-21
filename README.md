@@ -27,6 +27,8 @@ npm install
 npm start
 ```
 
+Use `npm run dev` for local backend development with automatic restarts.
+
 Install and run the frontend in a second terminal:
 
 ```sh
@@ -54,3 +56,11 @@ find Backend -name '*.js' -print0 | xargs -0 -n1 node --check
 ## Environment variables
 
 See [Backend/.env.example](Backend/.env.example) and [frontend/.env.example](frontend/.env.example). Never commit real API keys, JWT secrets, or database credentials.
+
+## Production checklist
+
+- Set `NODE_ENV=production` and use a long random `JWT_SECRET`.
+- Set `CLIENT_URL` to the exact HTTPS frontend origin or comma-separated origins.
+- Serve the frontend and API over HTTPS so secure cookies are enabled.
+- Use managed MongoDB with backups and restricted network access.
+- Configure and monitor Mapbox, OpenWeatherMap, and Gemini quotas.

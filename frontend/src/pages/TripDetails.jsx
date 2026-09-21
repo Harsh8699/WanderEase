@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { tripService } from '@/services/tripService';
 import { aiService } from '@/services/aiService';
@@ -36,7 +36,7 @@ const TripDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  
+
   const [trip, setTrip] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [copiedCode, setCopiedCode] = useState(false);
@@ -65,13 +65,13 @@ const TripDetails = () => {
   const [backpackCategories, setBackpackCategories] = useState([]);
   const [isLoadingBackpack, setIsLoadingBackpack] = useState(false);
 
-  useEffect(() => {
-    if (id) {
-      loadTrip();
-    }
-  }, [id]);
+  // Polls
+  const [pollTitle, setPollTitle] = useState('');
+  const [pollOptions, setPollOptions] = useState('');
+  const [isCreatingPoll, setIsCreatingPoll] = useState(false);
+  const [votingPollId, setVotingPollId] = useState(null);
 
-  const loadTrip = async () => {
+  const loadTrip = useCallback(async () => {
     try {
       const data = await tripService.getTripById(id);
       setTrip(data);
@@ -82,11 +82,17 @@ const TripDetails = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [id, navigate]);
+
+  useEffect(() => {
+    if (id) {
+      loadTrip();
+    }
+  }, [id, loadTrip]);
 
   const handleAddItineraryItem = async (e) => {
     e.preventDefault();
-    
+
     if (!newItemDay || !newItemTitle) {
       toast.error('Please fill required fields');
       return;
@@ -119,7 +125,7 @@ const TripDetails = () => {
 
   const handleAddExpense = async (e) => {
     e.preventDefault();
-    
+
     if (!expenseDescription || !expenseAmount) {
       toast.error('Please fill all fields');
       return;
@@ -194,7 +200,7 @@ const TripDetails = () => {
 
   const loadAISuggestions = async () => {
     if (!trip) return;
-    
+
     setIsLoadingAI(true);
     try {
       const result = await aiService.suggestItinerary(
@@ -228,6 +234,40 @@ const TripDetails = () => {
       toast.error('Failed to load smart backpack list');
     } finally {
       setIsLoadingBackpack(false);
+    }
+  };
+
+  const handleCreatePoll = async (e) => {
+    e.preventDefault();
+    const options = pollOptions.split(/[\n,]/).map((option) => option.trim()).filter(Boolean);
+    if (!pollTitle.trim() || options.length < 2) {
+      toast.error('Add a poll title and at least two options');
+      return;
+    }
+
+    setIsCreatingPoll(true);
+    try {
+      const updated = await tripService.createPoll(id, pollTitle, options);
+      setTrip(updated);
+      setPollTitle('');
+      setPollOptions('');
+      toast.success('Poll created!');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to create poll');
+    } finally {
+      setIsCreatingPoll(false);
+    }
+  };
+
+  const handleVote = async (pollId, optionId) => {
+    setVotingPollId(`${pollId}:${optionId}`);
+    try {
+      const updated = await tripService.castVote(id, pollId, optionId);
+      setTrip(updated);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to cast vote');
+    } finally {
+      setVotingPollId(null);
     }
   };
 
@@ -298,10 +338,11 @@ const TripDetails = () => {
 
           {/* Tabs */}
           <Tabs defaultValue="overview" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="itinerary">Itinerary</TabsTrigger>
               <TabsTrigger value="expenses">Expenses</TabsTrigger>
+              <TabsTrigger value="polls">Polls</TabsTrigger>
               <TabsTrigger value="members">Members</TabsTrigger>
             </TabsList>
 
@@ -386,8 +427,13 @@ const TripDetails = () => {
                     <CardTitle>Weather Forecast</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-3 gap-3">
-                      {trip.blueprint.weatherForecast.slice(0, 3).map((day, i) => {
+                    {trip.blueprint.weatherForecast.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        Forecast data is unavailable for these dates.
+                      </p>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-3">
+                        {trip.blueprint.weatherForecast.slice(0, 3).map((day, i) => {
                         const isWarm = day.temp_max >= 30;
                         const isCold = day.temp_max <= 20;
                         const gradient = isWarm
@@ -421,8 +467,9 @@ const TripDetails = () => {
                             </div>
                           </div>
                         );
-                      })}
-                    </div>
+                        })}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>
@@ -643,7 +690,7 @@ const TripDetails = () => {
                             </div>
                             <div className="flex items-center gap-2">
                               <span className="font-semibold">₹{expense.amount.toLocaleString()}</span>
-                              {expense.paidBy._id === user?._id && (
+                              {String(expense.paidBy?._id) === String(user?._id) && (
                                 <Button
                                   variant="ghost"
                                   size="icon"
@@ -719,6 +766,66 @@ const TripDetails = () => {
               </Card>
             </TabsContent>
 
+            {/* Polls Tab */}
+            <TabsContent value="polls" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Create a Poll</CardTitle>
+                  <CardDescription>Let the group vote on the next decision.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleCreatePoll} className="space-y-3">
+                    <Input
+                      placeholder="Poll question"
+                      value={pollTitle}
+                      onChange={(e) => setPollTitle(e.target.value)}
+                      maxLength={200}
+                    />
+                    <Textarea
+                      placeholder="One option per line"
+                      value={pollOptions}
+                      onChange={(e) => setPollOptions(e.target.value)}
+                      rows={4}
+                    />
+                    <Button type="submit" disabled={isCreatingPoll}>
+                      {isCreatingPoll ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+                      Create Poll
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+
+              {trip.polls?.length ? trip.polls.map((poll) => (
+                <Card key={poll._id}>
+                  <CardHeader>
+                    <CardTitle>{poll.title}</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {poll.options.map((option) => {
+                      const voteKey = `${poll._id}:${option._id}`;
+                      const hasVoted = option.votes?.some((voter) => String(voter._id || voter) === String(user?._id));
+                      return (
+                        <Button
+                          key={option._id}
+                          type="button"
+                          variant={hasVoted ? 'default' : 'outline'}
+                          className="w-full justify-between"
+                          onClick={() => handleVote(poll._id, option._id)}
+                          disabled={votingPollId !== null}
+                        >
+                          <span>{option.text}</span>
+                          <span>{option.votes?.length || 0}</span>
+                          {votingPollId === voteKey && <Loader2 className="h-4 w-4 animate-spin" />}
+                        </Button>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+              )) : (
+                <p className="text-center text-sm text-muted-foreground">No polls yet.</p>
+              )}
+            </TabsContent>
+
             {/* Members Tab */}
             <TabsContent value="members">
               <Card>
@@ -741,7 +848,7 @@ const TripDetails = () => {
                             <p className="text-sm text-muted-foreground">{member.email}</p>
                           </div>
                         </div>
-                        {member._id === trip.createdBy && (
+                        {String(member._id) === String(trip.createdBy?._id || trip.createdBy) && (
                           <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">Organizer</span>
                         )}
                       </div>
