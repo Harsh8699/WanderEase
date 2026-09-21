@@ -7,7 +7,6 @@ const AuthContext = createContext(undefined);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -32,17 +31,15 @@ export const AuthProvider = ({ children }) => {
   // Set up unauthorized callback for axios interceptor
   useEffect(() => {
     const handleUnauthorized = () => {
-      setToken(null);
       setUser(null);
     };
-    
+
     setUnauthorizedCallback(handleUnauthorized);
   }, []);
 
   const login = async (email, password) => {
     try {
       const data = await authService.login(email, password);
-      setToken(null);
       setUser(data);
       toast.success('Login successful!');
     } catch (error) {
@@ -55,7 +52,6 @@ export const AuthProvider = ({ children }) => {
   const register = async (name, email, password) => {
     try {
       const data = await authService.register(name, email, password);
-      setToken(null);
       setUser(data);
       toast.success('Registration successful!');
     } catch (error) {
@@ -68,15 +64,16 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       await authService.logout();
+    } catch (error) {
+      console.warn('Logout request failed; clearing local session state.', error);
     } finally {
-      setToken(null);
       setUser(null);
       toast.success('Logged out successfully');
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, register, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, login, register, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

@@ -197,6 +197,7 @@ const generateTripBlueprint = asyncHandler(async (req, res) => {
             geometry: primaryRoute.geometry, // GeoJSON LineString
         },
         weatherForecast: forecast,
+        forecastCoverage: { requestedDays: duration, availableDays: forecast.length },
         transportOptions,
         accommodation,
         budget: {

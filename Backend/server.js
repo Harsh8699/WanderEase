@@ -8,6 +8,7 @@ const axios = require('axios');
 const cookieParser = require('cookie-parser');
 const mongoose = require('mongoose');
 const connectDB = require('./config/db');
+const { csrfProtection } = require('./middleware/csrfMiddleware');
 
 // Import route files
 const authRoutes = require('./routes/authRoutes');
@@ -35,6 +36,7 @@ app.use(cors({
 app.use(helmet());
 app.use(cookieParser());
 app.use(express.json({ limit: '1mb' }));
+app.use(csrfProtection);
 
 const apiLimiter = rateLimit({
 	windowMs: 15 * 60 * 1000,
@@ -63,6 +65,13 @@ const aiLimiter = rateLimit({
 
 // --- ROUTES ---
 app.get('/', (req, res) => { res.send('API is running successfully!'); });
+app.get('/health', (req, res) => {
+	const databaseConnected = mongoose.connection.readyState === 1;
+	return res.status(databaseConnected ? 200 : 503).json({
+	status: 'ok',
+	database: databaseConnected ? 'connected' : 'disconnected',
+	});
+});
 
 // Mount Routers
 app.use('/api', apiLimiter);
@@ -95,7 +104,9 @@ const startServer = async () => {
 	const server = app.listen(PORT, () => console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`));
 	const shutdown = (signal) => {
 		console.log(`${signal} received. Closing server.`);
+		const forceExit = setTimeout(() => process.exit(1), 10000);
 		server.close(async () => {
+			clearTimeout(forceExit);
 			await mongoose.connection.close();
 			process.exit(0);
 		});

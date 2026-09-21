@@ -42,7 +42,7 @@ const Home = () => {
       <section className="py-16 md:py-24">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Why Choose TravelPlanner?</h2>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Why Choose WanderEase?</h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               Everything you need to plan and manage your trips in one place
             </p>
@@ -135,7 +135,7 @@ const Home = () => {
             <div className="max-w-3xl mx-auto text-center space-y-6">
               <h2 className="text-3xl md:text-4xl font-bold">Ready to Start Your Adventure?</h2>
               <p className="text-lg opacity-90">
-                Join thousands of travelers who plan their perfect trips with TravelPlanner
+                Plan your next adventure with WanderEase
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button size="lg" variant="secondary" onClick={() => navigate('/register')}>

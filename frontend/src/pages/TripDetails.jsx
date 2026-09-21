@@ -427,6 +427,11 @@ const TripDetails = () => {
                     <CardTitle>Weather Forecast</CardTitle>
                   </CardHeader>
                   <CardContent>
+                    {trip.blueprint.weatherForecast.length < trip.blueprint.tripDetails.duration && (
+                      <p className="mb-3 text-sm text-amber-700">
+                        Forecast coverage is limited to {trip.blueprint.weatherForecast.length} of {trip.blueprint.tripDetails.duration} trip days.
+                      </p>
+                    )}
                     {trip.blueprint.weatherForecast.length === 0 ? (
                       <p className="text-sm text-muted-foreground">
                         Forecast data is unavailable for these dates.

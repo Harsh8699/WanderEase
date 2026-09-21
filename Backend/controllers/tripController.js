@@ -5,6 +5,20 @@ const crypto = require('crypto');
 
 const isMember = (trip, userId) => trip.members.some((memberId) => memberId.equals(userId));
 const createInviteCode = () => crypto.randomBytes(4).toString('hex').slice(0, 6).toUpperCase();
+const isFiniteNumber = (value) => typeof value === 'number' && Number.isFinite(value);
+const isValidBlueprint = (blueprint) => {
+    const details = blueprint?.tripDetails;
+    const route = blueprint?.route;
+    const budget = blueprint?.budget;
+    const coordinates = [route?.origin, route?.destination].every((point) => point && isFiniteNumber(point.lat) && isFiniteNumber(point.lon) && point.lat >= -90 && point.lat <= 90 && point.lon >= -180 && point.lon <= 180);
+    return details && typeof details.origin === 'string' && details.origin.length <= 100
+        && typeof details.destinationName === 'string' && details.destinationName.length <= 100
+        && Number.isInteger(details.duration) && details.duration >= 1 && details.duration <= 30
+        && Number.isInteger(details.travelers) && details.travelers >= 1 && details.travelers <= 50
+        && route && isFiniteNumber(route.distanceKm) && route.distanceKm >= 0 && coordinates
+        && budget && isFiniteNumber(budget.totalEstimatedCost) && budget.totalEstimatedCost >= 0
+        && isFiniteNumber(budget.costPerPerson) && budget.costPerPerson >= 0;
+};
 const populateTrip = (query) => query
     .populate('members', 'name email')
     .populate('expenses.paidBy', 'name')
@@ -13,8 +27,9 @@ const populateTrip = (query) => query
 
 const createTrip = asyncHandler(async (req, res) => {
     const { tripName, tripMode, blueprint } = req.body;
-    if (!tripName?.trim() || !tripMode || !blueprint?.tripDetails?.destinationName) { res.status(400); throw new Error('Trip name, mode, and destination are required.'); }
-    const tripData = { tripName, tripMode, blueprint, createdBy: req.user._id, members: [req.user._id], };
+    if (!tripName?.trim() || tripName.trim().length > 120 || !tripMode || !blueprint?.tripDetails?.destinationName) { res.status(400); throw new Error('Trip name, mode, and destination are required.'); }
+    if (!isValidBlueprint(blueprint) || !Array.isArray(blueprint.weatherForecast) || blueprint.weatherForecast.length > 30) { res.status(400); throw new Error('Invalid trip blueprint.'); }
+    const tripData = { tripName: tripName.trim(), tripMode, blueprint, createdBy: req.user._id, members: [req.user._id], };
     if (tripMode === 'Group Trip') { tripData.inviteCode = createInviteCode(); }
     const trip = new Trip(tripData);
     const createdTrip = await trip.save();
@@ -60,7 +75,7 @@ const addItineraryItem = asyncHandler(async (req, res) => {
     const { day, title, notes } = req.body;
     const trip = await Trip.findById(req.params.id);
     if (!trip || !isMember(trip, req.user._id)) { res.status(403); throw new Error('User not authorized.'); }
-    if (!Number.isInteger(day) || day < 1 || day > trip.blueprint.tripDetails.duration || !title?.trim()) { res.status(400); throw new Error('A valid trip day and title are required.'); }
+    if (!Number.isInteger(day) || day < 1 || day > trip.blueprint.tripDetails.duration || !title?.trim() || title.trim().length > 200 || (notes && notes.trim().length > 2000)) { res.status(400); throw new Error('A valid trip day, title, and notes are required.'); }
     const newItem = { day, title: title.trim(), notes: notes?.trim() || '', addedBy: req.user._id, };
     trip.itinerary.push(newItem);
     await trip.save();
@@ -81,7 +96,7 @@ const deleteItineraryItem = asyncHandler(async (req, res) => {
 
 const addExpense = asyncHandler(async (req, res) => {
     const { description, amount } = req.body;
-    if (!description?.trim() || !Number.isFinite(amount) || amount <= 0) { res.status(400); throw new Error('A description and a positive amount are required.'); }
+    if (!description?.trim() || description.trim().length > 200 || !Number.isFinite(amount) || amount <= 0) { res.status(400); throw new Error('A description and a positive amount are required.'); }
     const trip = await Trip.findById(req.params.id);
     if (!trip || !isMember(trip, req.user._id)) { res.status(403); throw new Error('User not authorized.'); }
     const newExpense = { description: description.trim(), amount, paidBy: req.user._id, };
@@ -125,7 +140,7 @@ const updateExpense = asyncHandler(async (req, res) => {
         throw new Error('Only the person who added this expense can edit it.');
     }
 
-    if (description !== undefined && !description.trim()) { res.status(400); throw new Error('Description cannot be empty.'); }
+    if (description !== undefined && (!description.trim() || description.trim().length > 200)) { res.status(400); throw new Error('Description must be between 1 and 200 characters.'); }
     if (amount !== undefined && (!Number.isFinite(amount) || amount <= 0)) { res.status(400); throw new Error('Amount must be positive.'); }
     if (description !== undefined) expense.description = description.trim();
     if (amount !== undefined) expense.amount = amount;
@@ -138,7 +153,7 @@ const updateExpense = asyncHandler(async (req, res) => {
 const createPoll = asyncHandler(async (req, res) => {
     const { title, options } = req.body;
     const cleanOptions = Array.isArray(options) ? options.map((option) => String(option).trim()).filter(Boolean) : [];
-    if (!title?.trim() || cleanOptions.length < 2 || new Set(cleanOptions.map((option) => option.toLowerCase())).size !== cleanOptions.length) { res.status(400); throw new Error('A poll requires a title and at least two unique options.'); }
+    if (!title?.trim() || title.trim().length > 200 || cleanOptions.length < 2 || cleanOptions.some((option) => option.length > 100) || new Set(cleanOptions.map((option) => option.toLowerCase())).size !== cleanOptions.length) { res.status(400); throw new Error('A poll requires a title and at least two unique options.'); }
     const trip = await Trip.findById(req.params.id);
     if (!trip || !isMember(trip, req.user._id)) { res.status(403); throw new Error('User not authorized.'); }
     const newPoll = { title: title.trim(), options: cleanOptions.map((optionText) => ({ text: optionText, votes: [] })), createdBy: req.user._id, };

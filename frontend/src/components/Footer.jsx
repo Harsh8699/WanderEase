@@ -10,7 +10,7 @@ const Footer = () => {
           <div className="space-y-4">
             <div className="flex items-center space-x-2 text-primary">
               <Plane className="h-6 w-6" />
-              <span className="text-xl font-bold">TravelPlanner</span>
+              <span className="text-xl font-bold">WanderEase</span>
             </div>
             <p className="text-sm text-muted-foreground">
               Plan your perfect journey with AI-powered trip planning and real-time weather insights.
@@ -67,7 +67,7 @@ const Footer = () => {
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li className="flex items-center space-x-2">
                 <Mail className="h-4 w-4" />
-                <span>support@travelplanner.com</span>
+                <span>support@wanderease.com</span>
               </li>
               <li className="flex items-center space-x-2">
                 <Phone className="h-4 w-4" />
@@ -82,7 +82,7 @@ const Footer = () => {
         </div>
 
         <div className="mt-8 pt-8 border-t text-center text-sm text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} TravelPlanner. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} WanderEase. All rights reserved.</p>
         </div>
       </div>
     </footer>

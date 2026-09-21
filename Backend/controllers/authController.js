@@ -4,6 +4,12 @@ const User = require('../models/User.js');
 const jwt = require('jsonwebtoken');
 
 const AUTH_COOKIE = 'wanderease_token';
+const cookieOptions = {
+  httpOnly: true,
+  sameSite: process.env.COOKIE_SAME_SITE || (process.env.NODE_ENV === 'production' ? 'none' : 'lax'),
+  secure: process.env.NODE_ENV === 'production',
+  maxAge: 30 * 24 * 60 * 60 * 1000,
+};
 
 const generateToken = (user) => {
   return jwt.sign({ id: user._id, tokenVersion: user.tokenVersion }, process.env.JWT_SECRET, { expiresIn: '30d' });
@@ -11,10 +17,7 @@ const generateToken = (user) => {
 
 const setAuthCookie = (res, user) => {
   res.cookie(AUTH_COOKIE, generateToken(user), {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 30 * 24 * 60 * 60 * 1000,
+    ...cookieOptions,
   });
 };
 
@@ -60,9 +63,8 @@ const logoutUser = asyncHandler(async (req, res) => {
   req.user.tokenVersion += 1;
   await req.user.save();
   res.clearCookie(AUTH_COOKIE, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    ...cookieOptions,
+    maxAge: undefined,
   });
   res.status(204).send();
 });

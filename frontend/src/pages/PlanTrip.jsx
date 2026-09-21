@@ -30,7 +30,7 @@ const RouteMap = lazy(() => import('@/components/RouteMap'));
 const PlanTrip = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  
+
   const [origin, setOrigin] = useState('');
   const [destination, setDestination] = useState(location.state?.destinationName || '');
   const [departureDate, setDepartureDate] = useState('');
@@ -342,6 +342,11 @@ const PlanTrip = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
+                  {blueprint.weatherForecast.length < blueprint.tripDetails?.duration && (
+                    <p className="mb-4 text-sm text-amber-700">
+                      Forecast coverage is limited to {blueprint.weatherForecast.length} of {blueprint.tripDetails?.duration} trip days.
+                    </p>
+                  )}
                   {blueprint.weatherForecast.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
                       Forecast data is unavailable for these dates. The provider currently supports five-day forecasts.
